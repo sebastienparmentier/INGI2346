@@ -9,13 +9,15 @@
 #define FTP_STOC 7
 #define FTP_CTOS 8
 #define FTP_BYE 9
-#define FTP_HELP 10
+#define FTP_RESP_LS 10
+#define FTP_RESP_PWD 11
 
 #include <stdlib.h>
 #include <stdio.h>
 #include <errno.h>
 #include <string.h>
 #include <unistd.h>
+#include <stdbool.h>
 #include <sys/types.h>
 #include <netinet/in.h>
 #include <sys/wait.h>

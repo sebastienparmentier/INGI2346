@@ -6,15 +6,12 @@
 #include "inclSocket.h"
 
 #define PORT 7000
+#define PROMPT '#'
 
 
-struct controlMessage {
-  int type;
-  int argLength
-  char *arg;
-};
 
-void init_message(struct controlMessage *m)
+
+void clear_message(struct controlMessage *m)
 {
     m->type=0;
     m->argLength=0;
@@ -87,7 +84,7 @@ void create_message(char *cmd, struct controlMessage *m)
         m->argLength = strlen(tmp);
         m->arg=tmp;
     }
-    else if (strcmp(cad,"bye") == 0 && strlen(cad) == 3)
+    else if (strcmp(cmd,"bye") == 0 && strlen(cmd) == 3)
     {
         m->type = FTP_BYE;
     }
@@ -102,11 +99,8 @@ func_lpwd()
 
 }
 
-func_cd(char *orden)
-{
-    chdir(orden);
-}
-void parse(int argc, char* argv)
+
+void parse(int argc, char* argv[], char** serverAddr)
 {
     int optch;
     extern int opterr = 1;
@@ -118,6 +112,7 @@ void parse(int argc, char* argv)
     {
         case 'h':
             printf ("This program takes one argument : The name of the host where the server program is running \n");
+            printf ("This program takes one argument : The name of the host where the server program is running \n");
             break;
     }
     if(argc != 2)
@@ -126,31 +121,78 @@ void parse(int argc, char* argv)
         printf ("This program takes one argument : The name of the host where the server program is running \n");
         exit(0);  
     }
+    *serverAddr = &argv[1];
 
 }
-main(int argc, char* argv) 
+main(int argc, char* argv[]) 
 {
     int sd;
-    parse(argc,argv);
-
-    sd=socket(AF_INET,SOCK_STREAM,0); 
-    if(sd<0)
+    char* serverAddr = NULL;
+    parse(argc,argv, &serverAddr);
+    if ( ( sd = socket (PF_INET, SOCK_STREAM, 0)) < 0)
     {
-        printf("The socket can't be created.\n");
+        perror("The socket can't be created.\n");
         exit(1);
     }
-    struct sockaddr_in addr; 
-    bzero(&addr,sizeof(struct sockaddr_in)); 
-    addr.sin_family=AF_INET; 
-    addr.sin_port=htons(PORT); 
-    inet_aton("192.168.196.129",&addr.sin_addr); 
+    struct sockaddr_in sockaddrS;
+
+    /* fill in the structure "sockaddrS" with the address of the
+     * server that we want to connect with */
   
-    for(;cont;) 
+    bzero((char *) &sockaddrS , sizeof(sockaddrS));
+    sockaddrS.sin_family     = AF_INET;
+    sockaddrS.sin_addr.s_addr = inet_addr(serverAddr);
+    sockaddrS.sin_port       = htons(PORT);
+    if (connect(sd , (struct sockaddr *) &sockaddrS , sizeof ( sockaddrS )) < 0)
+    {
+        perror("We can't connect to the server");
+        close(sd);
+        exit(-1);
+    }
+
+    bool b = true;
+    while(b)
     {   
-
-        connect(sd,(struct sockaddr *)&addr,sizeof(addr));
-
-    
+        printf("%s ",PROMPT);
+        char* ptr = NULL;
+        char* cmd = NULL;
+        for(int size=256;ptr==NULL;size=size*2)
+        {
+            if (cmd=realloc(cmd, size * sizeof(*cmd))==NULL)
+            {
+                perror("memory error ");
+                close(sd);
+                exit(1);
+            }
+            fgets(cmd, size, stdin);
+            ptr = memchr(cmd, '\n', size);
+        }
+        *ptr = '\0';
+        struct controlMessage mess;
+        clear_message(&mess);
+        create_message(cmd, &mess)
+        if(mess.type == FTP_PWD)
+            get_pwd(sd,mess);
+        else if(mess.type == FTP_LPWD)
+            func_exec("pwd");
+        else if(mess.type == FTP_LS)
+            get_ls(sd,mess);
+        else if(mess.type == FTP_LLS)
+            func_exec("ls");
+        else if(mess.type == FTP_CD)
+            get_cd(sd,mess);
+        else if(mess.type == FTP_LCD)
+            func_cd(mess.arg);
+        else if(mess.type == FTP_STOC)
+            get_file(sd,mess);
+        else if(mess.type == FTP_CTOS)
+            send_file(sd,mess);
+        else if(mess.type == FTP_BYE)
+            b=false;
+            send(mess);
+        else
+            display_help();
+        free(cmd);
 
     }
     close(sd);
