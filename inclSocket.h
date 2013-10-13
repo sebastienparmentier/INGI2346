@@ -11,6 +11,8 @@
 #define FTP_BYE 9
 #define FTP_RESP_LS 10
 #define FTP_RESP_PWD 11
+#define FTP_RESP_CD 12
+#define FTP_ERROR 13
 
 #include <stdlib.h>
 #include <stdio.h>

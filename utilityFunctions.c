@@ -28,6 +28,17 @@ void send(int sd, struct controlMessage *m)
 void get_cd(struct controlMessage *m)
 {
     send(sd,m);
-    /*read something*/
+    int* type=NULL; 
+    read(sd,type,sizeof(int));
+    if(*type != FTP_RESP_CD || *type != FTP_ERROR)
+    {   
+        fprintf( stderr, "Error of transmission" );
+        return;
+    }
+    int* length=NULL;
+    read(sd,length,sizeof(int));
+    char* buff=NULL;
+    read(sd,buff,*length*sizeof(char));
+    fprintf( stdout, "%s", buff); 
 
 }
