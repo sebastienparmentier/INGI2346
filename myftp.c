@@ -4,27 +4,24 @@
 * =================================== */
 
 #include "inclSocket.h"
+#include "utilityFunctions.h"
 
 #define PORT 7000
 #define PROMPT '#'
 
-
-struct ControlMessage{
-	int type;
-	int argLength;
-	char *arg;
+struct controlMessage {
+  int type;
+  int argLength;
+  char *arg;
 };
-
-
-
-void clear_message(struct ControlMessage *m)
+void clear_message(struct controlMessage *m)
 {
     m->type=0;
     m->argLength=0;
     m->arg=NULL;
 }
 
-void create_message(char *cmd, struct ControlMessage *m)
+void create_message(char *cmd, struct controlMessage *m)
 {
     if(strcmp(cmd,"pwd") == 0 && strlen(cmd) == 3)
     {
@@ -100,20 +97,15 @@ void create_message(char *cmd, struct ControlMessage *m)
     }
 }
 
-void func_lpwd()
-{
-
-}
-
 
 void parse(int argc, char* argv[], char** serverAddr)
 {
     int optch;
-    int opterr = 1;
+    extern int opterr = 1;
  
     char format[] = "h";
  
-    while ((optch = getopt(argc, argv, "h")) != -1)
+    while ((optch = getopt(argc, argv, format)) != -1)
     switch (optch) 
     {
         case 'h':
@@ -130,36 +122,6 @@ void parse(int argc, char* argv[], char** serverAddr)
     *serverAddr = &argv[1];
 
 }
-
-void get_pwd(int sd, struct ControlMessage *mess)
-{
-}
-
-void get_ls(int sd, struct ControlMessage *mess)
-{
-}
-
-void func_exec(char str[])
-{
-}
-
-void get_cd(int sd, struct ControlMessage *mess)
-{
-}
-
-void func_cd(char str[])
-{
-}
-
-void get_file(int sd, struct ControlMessage *mess)
-{
-}
-
-void send_file(int sd, struct ControlMessage *mess)
-{
-}
-
-
 main(int argc, char* argv[]) 
 {
     int sd;
@@ -183,7 +145,7 @@ main(int argc, char* argv[])
     {
         perror("We can't connect to the server");
         close(sd);
-        exit(-1);
+        exit(1);
     }
 
     bool b = true;
@@ -206,26 +168,26 @@ main(int argc, char* argv[])
         *ptr = '\0';
         struct controlMessage mess;
         clear_message(&mess);
-        create_message(cmd, &mess);
+        create_message(cmd, &mess)
         if(mess.type == FTP_PWD)
-            get_pwd(sd,mess);
+            get_response(FTP_PWD,sd,mess);
         else if(mess.type == FTP_LPWD)
             func_exec("pwd");
         else if(mess.type == FTP_LS)
-            get_ls(sd,mess);
+            get_response(FTP_LS,sd,mess);
         else if(mess.type == FTP_LLS)
             func_exec("ls");
         else if(mess.type == FTP_CD)
-            get_cd(sd,mess);
+            get_response(FTP_CD,sd,mess);
         else if(mess.type == FTP_LCD)
             func_cd(mess.arg);
         else if(mess.type == FTP_STOC)
             get_file(sd,mess);
         else if(mess.type == FTP_CTOS)
             send_file(sd,mess);
-        else if(mess.type == FTP_BYE){
+        else if(mess.type == FTP_BYE)
             b=false;
-            send(sd,mess);}
+            send(mess);
         else
             display_help();
         free(cmd);

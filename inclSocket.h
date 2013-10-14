@@ -13,6 +13,8 @@
 #define FTP_RESP_PWD 11
 #define FTP_RESP_CD 12
 #define FTP_ERROR 13
+#define TCP_SIZE 536
+#define BUFF_SIZE 1200
 
 #define FTP_GET 14
 #define FTP_PUT 15
