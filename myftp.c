@@ -105,7 +105,6 @@ void parse(int argc, char* argv[], char** serverAddr)
     {
         case 'h':
             printf ("This program takes one argument : The name of the host where the server program is running \n");
-            printf ("This program takes one argument : The name of the host where the server program is running \n");
             break;
     }
     if(argc != 2)
@@ -218,7 +217,6 @@ int main(int argc, char* argv[])
         else
             display_help();
         free(cmd);
-
     }
     close(sd);
     exit(0);
