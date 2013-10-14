@@ -126,6 +126,28 @@ void func_exec(char str[])
 {
 }
 
+void get_response(int type, int sd, struct controlMessage *m)
+{
+}
+
+void func_cd(char *arg)
+{
+}
+
+void send_file(int sd, struct controlMessage *m, struct sockaddr_in sockaddrS)
+{
+}
+
+
+void ourSend(int sd, struct controlMessage *m)
+{
+}
+
+void display_help()
+{
+
+}
+
 int main(int argc, char* argv[]) 
 {
     int sd;
@@ -141,7 +163,8 @@ int main(int argc, char* argv[])
     /* fill in the structure "sockaddrS" with the address of the
      * server that we want to connect with */
   
-    bzero((char *) &sockaddrS , sizeof(sockaddrS));
+		memset((char *) &sockaddrS, 0, sizeof(sockaddrS));
+    /*bzero((char *) &sockaddrS , sizeof(sockaddrS));*/
     sockaddrS.sin_family     = AF_INET;
     sockaddrS.sin_addr.s_addr = inet_addr(serverAddr);
     sockaddrS.sin_port       = htons(PORT);
@@ -188,10 +211,10 @@ int main(int argc, char* argv[])
         else if(mess.type == FTP_STOC)
             get_file(sd,&mess);
         else if(mess.type == FTP_CTOS)
-            send_file(sd,&mess);
-        else if(mess.type == FTP_BYE)
+            send_file(sd,&mess,sockaddrS);
+        else if(mess.type == FTP_BYE){
             b=false;
-            ourSend(sd,&mess,sockaddrS);
+            ourSend(sd,&mess);}
         else
             display_help();
         free(cmd);
