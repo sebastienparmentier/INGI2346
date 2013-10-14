@@ -114,7 +114,7 @@ void parse(int argc, char* argv[], char** serverAddr)
         printf ("This program takes one argument : The name of the host where the server program is running \n");
         exit(0);  
     }
-    *serverAddr = (char)&argv[1];
+    *serverAddr = (char*)&argv[1];
 
 }
 
@@ -183,7 +183,7 @@ int main(int argc, char* argv[])
         char* cmd = NULL;
         for(int size=256;ptr==NULL;size=size*2)
         {
-            if (cmd=realloc(cmd, size * sizeof(*cmd))==NULL)
+            if ( (cmd=realloc(cmd, size * sizeof(*cmd))) ==NULL)
             {
                 perror("memory error ");
                 close(sd);
