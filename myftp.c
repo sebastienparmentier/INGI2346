@@ -122,6 +122,11 @@ void parse(int argc, char* argv[], char** serverAddr)
     *serverAddr = &argv[1];
 
 }
+
+void get_file(int sd, struct ControlMessage *mess)
+{
+}
+
 main(int argc, char* argv[]) 
 {
     int sd;
@@ -187,7 +192,7 @@ main(int argc, char* argv[])
             send_file(sd,mess);
         else if(mess.type == FTP_BYE)
             b=false;
-            send(mess);
+            send(sd,mess);
         else
             display_help();
         free(cmd);
