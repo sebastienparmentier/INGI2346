@@ -4,13 +4,16 @@
 * =================================== */
 
 #include "inclSocket.h"
+#include "utilityFunctions.h"
 
 #define PORT 7000
 #define PROMPT '#'
 
-
-
-
+struct controlMessage {
+  int type;
+  int argLength;
+  char *arg;
+};
 void clear_message(struct controlMessage *m)
 {
     m->type=0;

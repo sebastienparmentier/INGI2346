@@ -1,3 +1,5 @@
+#include "inclSocket.h"
+
 struct controlMessage {
   int type;
   int argLength
@@ -174,18 +176,21 @@ void get_file(int sd, struct controlMessage *m, struct sockaddr_in sockaddrS)
             printf("File write failed.\n");
         }
         bzero(buffer, TCP_SIZE);
-	    if (blockSize == 0 || blockSize != 512)
+	    if (blockSize == 0 || blockSize != TCP_SIZE)
         {
             break;
         }
 	}
-	if(blockSize < 0){
-	  if (errno == EAGAIN){
-	    printf("recv() timed out.\n");
-	  }
-	  else {
-	    fprintf(stderr, "recv() failed due to errno = %d\n", errno);
-	  }
+	if(blockSize < 0)
+    {
+        if (errno == EAGAIN)
+        {
+            printf("recv() timed out.\n");
+        }
+        else 
+        {
+            fprintf(stderr, "recv() failed due to errno = %d\n", errno);
+        }
 	}
 
 	
