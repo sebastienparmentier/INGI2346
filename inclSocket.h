@@ -14,6 +14,10 @@
 #define FTP_RESP_CD 12
 #define FTP_ERROR 13
 
+#define FTP_GET 14
+#define FTP_PUT 15
+#define FTP_HELP 16
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <errno.h>
