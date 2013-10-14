@@ -94,11 +94,6 @@ void create_message(char *cmd, struct controlMessage *m)
     }
 }
 
-func_lpwd()
-{
-
-}
-
 
 void parse(int argc, char* argv[], char** serverAddr)
 {
@@ -147,7 +142,7 @@ main(int argc, char* argv[])
     {
         perror("We can't connect to the server");
         close(sd);
-        exit(-1);
+        exit(1);
     }
 
     bool b = true;
@@ -172,15 +167,15 @@ main(int argc, char* argv[])
         clear_message(&mess);
         create_message(cmd, &mess)
         if(mess.type == FTP_PWD)
-            get_pwd(sd,mess);
+            get_response(FTP_PWD,sd,mess);
         else if(mess.type == FTP_LPWD)
             func_exec("pwd");
         else if(mess.type == FTP_LS)
-            get_ls(sd,mess);
+            get_response(FTP_LS,sd,mess);
         else if(mess.type == FTP_LLS)
             func_exec("ls");
         else if(mess.type == FTP_CD)
-            get_cd(sd,mess);
+            get_response(FTP_CD,sd,mess);
         else if(mess.type == FTP_LCD)
             func_cd(mess.arg);
         else if(mess.type == FTP_STOC)
