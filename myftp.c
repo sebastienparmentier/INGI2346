@@ -9,98 +9,98 @@
 #define PROMPT '#'
 
 
-struct controlMessage
-{
+struct ControlMessage{
 	int type;
 	int argLength;
 	char *arg;
-}
+};
 
 
-void clear_message(struct controlMessage m)
+
+void clear_message(struct ControlMessage *m)
 {
-    m.type=0;
-    m.argLength=0;
-    m.arg=NULL;
+    m->type=0;
+    m->argLength=0;
+    m->arg=NULL;
 }
 
-void create_message(char *cmd, struct controlMessage m)
+void create_message(char *cmd, struct ControlMessage *m)
 {
     if(strcmp(cmd,"pwd") == 0 && strlen(cmd) == 3)
     {
-        m.type = FTP_PWD;
+        m->type = FTP_PWD;
     }
     else if(strcmp(cmd,"lpwd") == 0 && strlen(cmd) == 4)
     {
-        m.type = FTP_LPWD;
+        m->type = FTP_LPWD;
     }
     else if (strcmp(cmd,"ls") == 0 && strlen(cmd) == 2)
     {
-        m.type = FTP_LS;
+        m->type = FTP_LS;
     }
     else if (strcmp(cmd,"lls") == 0 && strlen(cmd) == 3)
     {
-        m.type = FTP_LLS;
+        m->type = FTP_LLS;
     }
     else if (strncmp(cmd,"cd ",3) == 0)
     {
-        m.type = FTP_CD;
+        m->type = FTP_CD;
         char *tmp;
         tmp = strtok(cmd, " ");
         while(tmp[0] == ' ')
         {
             tmp = tmp + 1;
         }
-        m.argLength = strlen(tmp);
-        m.arg=tmp;
+        m->argLength = strlen(tmp);
+        m->arg=tmp;
     }
     else if (strncmp(cmd,"lcd ",4) == 0)
     {
-        m.type = FTP_LCD;
+        m->type = FTP_LCD;
         char *tmp;
         tmp = strtok(cmd, " ");
         while(tmp[0] == ' ')
         {
             tmp = tmp + 1;
         }
-        m.argLength = strlen(tmp);
-        m.arg=tmp;
+        m->argLength = strlen(tmp);
+        m->arg=tmp;
     }
     else if (strncmp(cmd,"get ",4) == 0)
     {
-        m.type = FTP_GET;
+        m->type = FTP_GET;
         char *tmp;
         tmp = strtok(cmd, " ");
         while(tmp[0] == ' ')
         {
             tmp = tmp + 1;
         }
-        m.argLength = strlen(tmp);
-        m.arg=tmp;
+        m->argLength = strlen(tmp);
+        m->arg=tmp;
     }
     else if (strncmp(cmd,"put ",4) == 0)
     {
-        m.type = FTP_PUT;
+        m->type = FTP_PUT;
         char *tmp;
         tmp = strtok(cmd, " ");
         while(tmp[0] == ' ')
         {
             tmp = tmp + 1;
         }
-        m.argLength = strlen(tmp);
-        m.arg=tmp;
+        m->argLength = strlen(tmp);
+        m->arg=tmp;
     }
     else if (strcmp(cmd,"bye") == 0 && strlen(cmd) == 3)
     {
-        m.type = FTP_BYE;
+        m->type = FTP_BYE;
     }
     else
     {
-        m.type= FTP_HELP;
+        m->type= FTP_HELP;
     }
 }
 
-func_lpwd()
+void func_lpwd()
 {
 
 }
@@ -109,11 +109,11 @@ func_lpwd()
 void parse(int argc, char* argv[], char** serverAddr)
 {
     int optch;
-    extern int opterr = 1;
+    int opterr = 1;
  
     char format[] = "h";
  
-    while ((optch = getopt(argc, argv, format)) != -1)
+    while ((optch = getopt(argc, argv, "h")) != -1)
     switch (optch) 
     {
         case 'h':
@@ -130,6 +130,36 @@ void parse(int argc, char* argv[], char** serverAddr)
     *serverAddr = &argv[1];
 
 }
+
+void get_pwd(int sd, struct ControlMessage *mess)
+{
+}
+
+void get_ls(int sd, struct ControlMessage *mess)
+{
+}
+
+void func_exec(char str[])
+{
+}
+
+void get_cd(int sd, struct ControlMessage *mess)
+{
+}
+
+void func_cd(char str[])
+{
+}
+
+void get_file(int sd, struct ControlMessage *mess)
+{
+}
+
+void send_file(int sd, struct ControlMessage *mess)
+{
+}
+
+
 main(int argc, char* argv[]) 
 {
     int sd;
@@ -193,9 +223,9 @@ main(int argc, char* argv[])
             get_file(sd,mess);
         else if(mess.type == FTP_CTOS)
             send_file(sd,mess);
-        else if(mess.type == FTP_BYE)
+        else if(mess.type == FTP_BYE){
             b=false;
-            send(mess);
+            send(sd,mess);}
         else
             display_help();
         free(cmd);

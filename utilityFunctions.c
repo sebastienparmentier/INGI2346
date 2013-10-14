@@ -21,7 +21,7 @@ void func_exec(char* cmd)
     
     pclose( f );
 }
-void send(int sd, struct controlMessage *m)
+void send(int sd, struct controlMessage m)
 {
     write(sd,&m,sizeof(m));
 }
