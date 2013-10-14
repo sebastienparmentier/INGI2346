@@ -9,11 +9,6 @@
 #define PORT 7000
 #define PROMPT '#'
 
-struct controlMessage {
-  int type;
-  int argLength;
-  char *arg;
-};
 void clear_message(struct controlMessage *m)
 {
     m->type=0;
@@ -101,7 +96,7 @@ void create_message(char *cmd, struct controlMessage *m)
 void parse(int argc, char* argv[], char** serverAddr)
 {
     int optch;
-    extern int opterr = 1;
+    extern int opterr;
  
     char format[] = "h";
  
@@ -119,15 +114,19 @@ void parse(int argc, char* argv[], char** serverAddr)
         printf ("This program takes one argument : The name of the host where the server program is running \n");
         exit(0);  
     }
-    *serverAddr = &argv[1];
+    *serverAddr = (char)&argv[1];
 
 }
 
-void get_file(int sd, struct ControlMessage *mess)
+void get_file(int sd, struct controlMessage *mess)
 {
 }
 
-main(int argc, char* argv[]) 
+void func_exec(char str[])
+{
+}
+
+int main(int argc, char* argv[]) 
 {
     int sd;
     char* serverAddr = NULL;
@@ -173,26 +172,26 @@ main(int argc, char* argv[])
         *ptr = '\0';
         struct controlMessage mess;
         clear_message(&mess);
-        create_message(cmd, &mess)
+        create_message(cmd, &mess);
         if(mess.type == FTP_PWD)
-            get_response(FTP_PWD,sd,mess);
+            get_response(FTP_PWD,sd,&mess);
         else if(mess.type == FTP_LPWD)
             func_exec("pwd");
         else if(mess.type == FTP_LS)
-            get_response(FTP_LS,sd,mess);
+            get_response(FTP_LS,sd,&mess);
         else if(mess.type == FTP_LLS)
             func_exec("ls");
         else if(mess.type == FTP_CD)
-            get_response(FTP_CD,sd,mess);
+            get_response(FTP_CD,sd,&mess);
         else if(mess.type == FTP_LCD)
             func_cd(mess.arg);
         else if(mess.type == FTP_STOC)
-            get_file(sd,mess);
+            get_file(sd,&mess);
         else if(mess.type == FTP_CTOS)
-            send_file(sd,mess);
+            send_file(sd,&mess);
         else if(mess.type == FTP_BYE)
             b=false;
-            send(sd,mess);
+            ourSend(sd,&mess,sockaddrS);
         else
             display_help();
         free(cmd);
