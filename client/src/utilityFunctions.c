@@ -1,10 +1,6 @@
 #include "inclSocket.h"
+#include "utilityFunctions.h"
 
-struct controlMessage {
-  int type;
-  int argLength
-  char *arg;
-};
 void func_cd(char *dirPath)
 {
     chdir(dirPath);
@@ -17,19 +13,19 @@ void func_exec(char* cmd)
         fprintf( stderr, "We can't execute this command\n" );
         return;
     }
-    char* str[256];
+    char str[256];
     while( fgets( str, 256,  f )== NULL ) 
         fprintf( stdout, "%s", str  );
     
     pclose( f );
 }
-void send(int sd, struct controlMessage m)
+void send_message(int sd, struct controlMessage *m)
 {
     write(sd,m,sizeof(m));
 }
 void get_response(int type, int sd, struct controlMessage *m)
 {
-    send(sd,m);
+    send_message(sd,m);
     int* typeMessage=NULL; 
     read(sd,typeMessage,sizeof(int));
     if(*typeMessage != type || *typeMessage != FTP_ERROR)
@@ -44,39 +40,23 @@ void get_response(int type, int sd, struct controlMessage *m)
     fprintf( stdout, "%s", buff); 
 
 }
+
 void send_file(int sd, struct controlMessage *m, struct sockaddr_in sockaddrS)
 {
-    send(sd,m);
     FILE *fd = fopen(m->arg, "r");
     if(fd == NULL)
     {
-        printf("We can't find the file : %s \n", m->file);
+        printf("We can't find the file : %s \n", m->arg);
     }
-    fseek(0,SEEK_END);
+    fseek(fd,0,SEEK_END);
     unsigned long size = ftell(fd); 
-    write(sd,&size,sizeof(size));
-    close(fd);
-    int* typeMessage=NULL;
-    read(sd,typeMessage,sizeof(int));
-    if(*typeMessage != FTP_SUCCESS || *typeMessage != FTP_ERROR)
-    {   
-        fprintf( stderr, "Error of transmission" );
-        return;
-    }
-    int* length=NULL;
-    read(sd,length,sizeof(int));
-    char* buff=NULL;
-    read(sd,buff,*length*sizeof(char));
-    if(*typeMessage == FTP_ERROR)
-    {
-        fprint(stdout, "%s", buff);
-        return;
-    }
+    fclose(fd);
     int pid = fork();
     if(pid!=0)
         return;
+
     /*Child process*/
-    close(fd);
+    close(sd);
     int sdf;
     if ( ( sdf = socket (PF_INET, SOCK_STREAM, 0)) < 0)
     {
@@ -92,20 +72,40 @@ void send_file(int sd, struct controlMessage *m, struct sockaddr_in sockaddrS)
         close(sdf);
         exit(1);
     }
-    FILE *fd = fopen(m->arg, "rb");
+    send_message(sdf,m);
+    write(sdf,&size,sizeof(size));
+    
+    int* typeMessage=NULL;
+    read(sdf,typeMessage,sizeof(int));
+    if(*typeMessage != FTP_SUCCESS || *typeMessage != FTP_ERROR)
+    {   
+        fprintf( stderr, "Error of transmission" );
+        return;
+    }
+    int* length=NULL;
+    read(sdf,length,sizeof(int));
+    char* buff=NULL;
+    read(sdf,buff,*length*sizeof(char));
+    if(*typeMessage == FTP_ERROR)
+    {
+        fprintf(stdout, "%s", buff);
+        return;
+    }
+    
+    fd = fopen(m->arg, "rb");
     int buffer[(TCP_SIZE)/4]; 
     bzero(buffer, TCP_SIZE); 
     int blockSize; 
     while((blockSize = fread(buffer, sizeof(int), (TCP_SIZE)/4, fd)) > 0)
     {
         int s = send(sdf, buffer, blockSize, 0);
-        bzero(buffer, BUFFER_SIZE);
+        bzero(buffer, (TCP_SIZE)/4);
         if(s < 0)
         {
             fprintf(stderr, "The transmission of the file %s has failed", m->arg);
             break;
         }
-        else if(s = 0)
+        else if(s == 0)
         {
             fprintf(stderr, "The transmission of the file %s has failed because the connection has been lost", m->arg);
             break;
@@ -122,7 +122,7 @@ void get_file(int sd, struct controlMessage *m, struct sockaddr_in sockaddrS)
     if(pid!=0)
         return;
     /*Child process*/
-    close(fd);
+    close(sd);
     int sdf;
     if ( ( sdf = socket (PF_INET, SOCK_STREAM, 0)) < 0)
     {
@@ -138,7 +138,7 @@ void get_file(int sd, struct controlMessage *m, struct sockaddr_in sockaddrS)
         close(sdf);
         exit(1);
     }
-    send(sdf,m);
+    send_message(sdf,m);
     int* typeMessage=NULL;
     read(sdf,typeMessage,sizeof(int));
     if(*typeMessage != FTP_SUCCESS || *typeMessage != FTP_ERROR)
@@ -152,7 +152,7 @@ void get_file(int sd, struct controlMessage *m, struct sockaddr_in sockaddrS)
     read(sdf,buff,*length*sizeof(char));
     if(*typeMessage == FTP_ERROR)
     {
-        fprint(stdout, "%s", buff);
+        fprintf(stdout, "%s", buff);
         free(m->arg);
         close(sdf);
         

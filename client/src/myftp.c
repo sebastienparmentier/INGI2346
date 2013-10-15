@@ -113,33 +113,8 @@ void parse(int argc, char* argv[], char** serverAddr)
         printf ("This program takes one argument : The name of the host where the server program is running \n");
         exit(0);  
     }
-    *serverAddr = (char*)&argv[1];
+    *serverAddr = (char*)argv[1];
 
-}
-
-void get_file(int sd, struct controlMessage *mess)
-{
-}
-
-void func_exec(char str[])
-{
-}
-
-void get_response(int type, int sd, struct controlMessage *m)
-{
-}
-
-void func_cd(char *arg)
-{
-}
-
-void send_file(int sd, struct controlMessage *m, struct sockaddr_in sockaddrS)
-{
-}
-
-
-void ourSend(int sd, struct controlMessage *m)
-{
 }
 
 void display_help()
@@ -162,10 +137,10 @@ int main(int argc, char* argv[])
     /* fill in the structure "sockaddrS" with the address of the
      * server that we want to connect with */
   
-		memset((char *) &sockaddrS, 0, sizeof(sockaddrS));
-    /*bzero((char *) &sockaddrS , sizeof(sockaddrS));*/
+    memset((char *) &sockaddrS, 0, sizeof(sockaddrS));
     sockaddrS.sin_family     = AF_INET;
     sockaddrS.sin_addr.s_addr = inet_addr(serverAddr);
+    fprintf(stdout,"%s",serverAddr);
     sockaddrS.sin_port       = htons(PORT);
     if (connect(sd , (struct sockaddr *) &sockaddrS , sizeof ( sockaddrS )) < 0)
     {
@@ -177,7 +152,7 @@ int main(int argc, char* argv[])
     bool b = true;
     while(b)
     {   
-        printf("%s ",PROMPT);
+        printf("%c ",PROMPT);
         char* ptr = NULL;
         char* cmd = NULL;
         for(int size=256;ptr==NULL;size=size*2)
@@ -208,17 +183,21 @@ int main(int argc, char* argv[])
         else if(mess.type == FTP_LCD)
             func_cd(mess.arg);
         else if(mess.type == FTP_STOC)
-            get_file(sd,&mess);
+            get_file(sd,&mess,sockaddrS);
         else if(mess.type == FTP_CTOS)
             send_file(sd,&mess,sockaddrS);
-        else if(mess.type == FTP_BYE){
+        else if(mess.type == FTP_BYE)
+        {
             b=false;
-            ourSend(sd,&mess);}
+            send_message(sd,&mess);
+        }
         else
             display_help();
         free(cmd);
     }
     close(sd);
+    /*stop brutally all file transfers*/
+    kill(-1,SIGKILL); 
     exit(0);
 }
 

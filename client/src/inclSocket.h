@@ -13,6 +13,7 @@
 #define FTP_RESP_PWD 11
 #define FTP_RESP_CD 12
 #define FTP_ERROR 13
+#define FTP_SUCCESS 14
 #define TCP_SIZE 536
 #define BUFF_SIZE 1200
 
@@ -24,6 +25,7 @@
 #include <stdio.h>
 #include <errno.h>
 #include <string.h>
+#include <strings.h>
 #include <unistd.h>
 #include <stdbool.h>
 #include <sys/types.h>
