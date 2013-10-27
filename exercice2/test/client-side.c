@@ -22,6 +22,7 @@
 #define FTP_VERS 1
 #define BUFF_SIZE 4096
 #define PROMPT '#'
+#define CLIENT int
 #include <stdlib.h>
 #include <stdio.h>
 #include <errno.h>
@@ -59,14 +60,14 @@ struct transferMessage {
     char *buffer; //size supposed to be BUFFER_SIZE
 };
 
-void clear_message(struct controlMessage *m)
+void clear_message(struct controlMessage* m)
 {
     m->type=0;
     m->argLength=0;
     m->arg=NULL;
 }
 
-void clear_transferMessage(struct transferMessage *m)
+void clear_transferMessage(struct transferMessage* m)
 {
     m->type=0;
     m->fileOffset =0;
@@ -74,7 +75,7 @@ void clear_transferMessage(struct transferMessage *m)
     m->fileName=NULL;
     m->buffer=NULL;
 }
-void clear_requestMessage(struct requestTransferMessage *m)
+void clear_requestMessage(struct requestTransferMessage* m)
 {
     m->type=0;
     m->fileOffset =0;
@@ -192,7 +193,7 @@ void func_exec(char* cmd)
 void func_serv_cd(CLIENT *clnt, struct controlMessage *mess)
 {
     int* state;
-    state = serv_cd(mess,clnt);
+    state = serv_cd_1(mess,clnt);
     if(state == NULL)
     {
         fprintf( stdout, "Command transmission error\n");
@@ -212,41 +213,50 @@ void func_serv_cd(CLIENT *clnt, struct controlMessage *mess)
 
 }
 
-void get_pwd(CLIENT clnt)
+void get_pwd(CLIENT* clnt)
 {
     struct controlMessage *resp;
-    resp = serv_pwd(mess,clnt);
-    if(resp == (int*) NULL)
-        fprintf( stdout, "Command transmission error\n", resp->arg );
+    struct controlMessage mess;
+    clear_message(&mess);
+    mess.type = FTP_PWD;
+    resp = serv_pwd_2(&mess,clnt);
+    if(resp == (struct controlMessage*) NULL)
+        fprintf( stdout, "Command transmission error\n");
     else if(resp->type != FTP_SUCCESS)
-
+        fprintf( stdout, "Error in the execution of the command\n");
     else
         fprintf( stdout, "%s\n", resp->arg );
 }
 
-void get_ls(CLIENT clnt)
+void get_ls(CLIENT* clnt)
 {
     struct transferMessage *resp;
     struct requestTransferMessage mess;
-    clear_requestMessage(mess);
+    clear_requestMessage(&mess);
     mess.type=FTP_LS;
     mess.fileOffset=0;
-    resp = serv_ls(mess,clnt);
+    resp = serv_ls_3(&mess,clnt);
     if(resp == NULL)
     {
-        fprintf( stdout, "Error of transmission\n");
+        fprintf( stdout, "Error in the transmission of the command\n");
         return;
     }
     while(resp != NULL && resp->type == FTP_TRANSFER)
     {
         fprintf( stdout, "%s", resp->buffer);
         mess.fileOffset = resp->fileOffset;
-        resp = serv_ls(mess,clnt);
+        resp = serv_ls_3(&mess,clnt);
 
     }
     if(resp == NULL)
     {
         fprintf( stdout, "Error of transmission\n");
+        return;
+    }
+    else if (resp->type == FTP_ERROR_LS)
+    {
+
+        fprintf( stdout, "ls command doesn't exist on the server\n");
         return;
     }
     else if (resp->type != FTP_TRANSFER_END)
@@ -259,13 +269,13 @@ void get_ls(CLIENT clnt)
 
 }
 
-void get_file(CLIENT clnt, struct controlMessage *m)
+void get_file(CLIENT* clnt, struct controlMessage *m)
 {
     struct transferMessage *resp;
     struct requestTransferMessage mess;
-    clear_requestMessage(mess);
+    clear_requestMessage(&mess);
     mess.type=m->type;
-    mess.arglength=m->argLength;
+    mess.argLength=m->argLength;
     mess.fileName = m->arg;
     FILE *fd = fopen(m->arg, "wb");
     if(fd == NULL)
@@ -274,13 +284,13 @@ void get_file(CLIENT clnt, struct controlMessage *m)
         return;
     }
 
-    resp = serv_download(mess,clnt);
+    resp = serv_download_4(&mess,clnt);
     int nb = BUFF_SIZE;
     while(resp != NULL && resp->type == FTP_TRANSFER && nb==BUFF_SIZE)
     {
-        nb = fwrite(resp->buffer,  sizeof(char), BUFFER_SIZE, fd);
+        nb = fwrite(resp->buffer,  sizeof(char), BUFF_SIZE, fd);
         mess.fileOffset = resp->fileOffset;
-        resp = serv_ls(mess,clnt);
+        resp = serv_download_4(&mess,clnt);
 
     }
     if(resp == NULL)
@@ -289,7 +299,7 @@ void get_file(CLIENT clnt, struct controlMessage *m)
         fclose(fd);
         return;
     }
-    else if (resp->type == FTP_FILE_ERROR)
+    else if (resp->type == FTP_ERROR_FILE)
     {
         fprintf( stdout, "The file %s couldn't be opened on the server\n", m->arg);
         fclose(fd);
@@ -301,20 +311,20 @@ void get_file(CLIENT clnt, struct controlMessage *m)
         fclose(fd);
         return;
     }
-    fwrite(resp->buffer,  sizeof(char), BUFFER_SIZE, fd);
+    fwrite(resp->buffer,  sizeof(char), BUFF_SIZE, fd);
     fclose(fd);
 
 }
 
-void send_file(CLIENT clnt, struct controlMessage *m)
+void send_file(CLIENT* clnt, struct controlMessage *m)
 {
     struct transferMessage mess;
     struct requestMessage *resp = NULL;
-    clear_transferMessage(mess);
+    clear_transferMessage(&mess);
     mess.type=m->type;
-    mess.arglength=m->argLength;
+    mess.argLength=m->argLength;
     mess.fileName = m->arg;
-    char* buff[BUFF_SIZE];
+    char buff[BUFF_SIZE];
     mess.buffer = buff;
     FILE *fd = fopen(m->arg, "rb");
     if(fd == NULL)
@@ -323,27 +333,27 @@ void send_file(CLIENT clnt, struct controlMessage *m)
         return;
     }
     int nb;
-    nb = fread(resp->buffer,  sizeof(char), BUFFER_SIZE, fd);
+    nb = fread( buff,  sizeof(char), BUFF_SIZE, fd);
     for(;nb>0; mess.fileOffset += BUFF_SIZE*(sizeof(char)))
     {
-        for(int i = 0;(resp == NULL || resp->type != SUCCESS )&& i<5 ;i++)
-            resp = serv_upload(mess,clnt);
+        for(int i = 0; ((resp == (struct requestMessage*) NULL) || (resp->type != FTP_SUCCESS) ) && i<5 ;i++)
+            resp = serv_upload_5(&mess,clnt);
 
-        if(resp == NULL || resp->type != SUCCESS)
+        if(resp == NULL || resp->type != FTP_SUCCESS)
         {
             fprintf( stdout, "Error in the transfer of the file\n");
             fclose(fd);
             return;
         }
 
-        nb = fread(resp->buffer,  sizeof(char), BUFFER_SIZE, fd);
+        nb = fread(buff,  sizeof(char), BUFF_SIZE, fd);
     }
     if(feof(fd))
     {
-        for(int i = 0;(resp == NULL || resp->type != SUCCESS )&& i<5 ;i++)
-            resp = serv_upload(mess,clnt);
+        for(int i = 0;(resp == NULL || resp->type != FTP_SUCCESS )&& i<5 ;i++)
+            resp = serv_upload_5(&mess,clnt);
 
-        if(resp == NULL || resp->type != SUCCESS)
+        if(resp == NULL || resp->type != FTP_SUCCESS)
         {
             fprintf( stdout, "Error in the transfer of the file\n");
         }
