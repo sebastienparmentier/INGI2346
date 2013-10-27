@@ -4,8 +4,8 @@
 #define FTP_LLS 4
 #define FTP_CD 5
 #define FTP_LCD 6
-#define FTP_STOC 7
-#define FTP_CTOS 8
+#define FTP_FILE_STOC 7
+#define FTP_FILE_CTOS 8
 #define FTP_BYE 9
 #define FTP_GET 10
 #define FTP_PUT 11
@@ -15,10 +15,12 @@
 #define FTP_ERROR_LS 15
 #define FTP_ERROR_FILE 16
 #define FTP_ERROR 17
+#define FTP_TRANSFER 18
+#define FTP_TRANSFER_END 19
 #define FTP_SUCCESS 0
 #define FTP_PROG 42424242
 #define FTP_VERS 1
-#define BUFF_SIZE 1200
+#define BUFF_SIZE 4096
 #define PROMPT '#'
 #include <stdlib.h>
 #include <stdio.h>
@@ -36,6 +38,127 @@
 //#include <netdb.h>
 #include <fcntl.h>
 
+struct controlMessage {
+    int type;
+    int argLength;
+    char *arg;
+};
+
+struct requestTransferMessage {
+    int type;
+    long fileOffset;
+    int argLength;
+    char *fileName;
+};
+
+struct transferMessage {
+    int type;
+    long fileOffset;
+    int argLength;
+    char *fileName;
+    char *buffer; //size supposed to be BUFFER_SIZE
+};
+
+void clear_message(struct controlMessage *m)
+{
+    m->type=0;
+    m->argLength=0;
+    m->arg=NULL;
+}
+
+void clear_transferMessage(struct transferMessage *m)
+{
+    m->type=0;
+    m->fileOffset =0;
+    m->argLength=0;
+    m->fileName=NULL;
+    m->buffer=NULL;
+}
+void clear_requestMessage(struct requestTransferMessage *m)
+{
+    m->type=0;
+    m->fileOffset =0;
+    m->argLength=0;
+    m->fileName=NULL;
+}
+
+void create_message(char *cmd, struct controlMessage *m)
+{
+    if(strcmp(cmd,"pwd") == 0 && strlen(cmd) == 3)
+    {
+        m->type = FTP_PWD;
+    }
+    else if(strcmp(cmd,"lpwd") == 0 && strlen(cmd) == 4)
+    {
+        m->type = FTP_LPWD;
+    }
+    else if (strcmp(cmd,"ls") == 0 && strlen(cmd) == 2)
+    {
+        m->type = FTP_LS;
+    }
+    else if (strcmp(cmd,"lls") == 0 && strlen(cmd) == 3)
+    {
+        m->type = FTP_LLS;
+    }
+    else if (strncmp(cmd,"cd ",3) == 0)
+    {
+        m->type = FTP_CD;
+        char *tmp=cmd;
+        tmp = tmp+3*sizeof(char);
+        while(tmp[0] == ' ')
+        {
+            tmp = tmp + sizeof(char);
+        }
+        m->argLength = strlen(tmp);
+        m->arg=tmp;
+    }
+    else if (strncmp(cmd,"lcd ",4) == 0)
+    {
+        m->type = FTP_LCD;
+        char *tmp=cmd;
+        tmp = tmp+4*sizeof(char);
+        while(tmp[0] == ' ')
+        {
+            tmp = tmp + 1;
+        }
+        m->argLength = strlen(tmp);
+        m->arg=tmp;
+    }
+    else if (strncmp(cmd,"get ",4) == 0)
+    {
+        m->type = FTP_FILE_STOC;
+        char *tmp=cmd;
+        tmp = tmp+4*sizeof(char);
+        while(tmp[0] == ' ')
+        {
+            tmp = tmp + 1;
+        }
+        m->argLength = strlen(tmp);
+        m->arg=tmp;
+    }
+    else if (strncmp(cmd,"put ",4) == 0)
+    {
+        m->type = FTP_FILE_CTOS;
+        char *tmp=cmd;
+        tmp = tmp+4*sizeof(char);
+        while(tmp[0] == ' ')
+        {
+            tmp = tmp + 1;
+        }
+        m->argLength = strlen(tmp);
+        m->arg=tmp;
+    }
+    else if (strcmp(cmd,"bye") == 0 && strlen(cmd) == 3)
+    {
+        m->type = FTP_BYE;
+    }
+    else
+    {
+        m->type= FTP_ERROR;
+    }
+}
+
+
 void display_help()
 {
     printf ("The number of arguments is incorrect\n");
@@ -44,7 +167,11 @@ void display_help()
 
 void func_cd(char *dirPath)
 {
-    chdir(dirPath);
+    int ret = chdir(dirPath);
+    if(ret != 0)
+    {
+        fprintf(stdout, "We can't change to this directory : %s\n", dirPath);
+    }
 }
 
 void func_exec(char* cmd)
@@ -62,18 +189,13 @@ void func_exec(char* cmd)
     pclose( f );
 }
 
-void quit_server(CLIENT *clnt)
-{
-    quit((void *)NULL, clnt);
-}
-
 void func_serv_cd(CLIENT *clnt, struct controlMessage *mess)
 {
     int* state;
     state = serv_cd(mess,clnt);
-    if(resp == NULL)
+    if(state == NULL)
     {
-        fprintf( stdout, "Command transmission error\n", resp->arg );
+        fprintf( stdout, "Command transmission error\n");
     }
     else if(*state == FTP_SUCCESS)
     {
@@ -94,17 +216,144 @@ void get_pwd(CLIENT clnt)
 {
     struct controlMessage *resp;
     resp = serv_pwd(mess,clnt);
-    if(resp == NULL)
+    if(resp == (int*) NULL)
         fprintf( stdout, "Command transmission error\n", resp->arg );
+    else if(resp->type != FTP_SUCCESS)
+
     else
         fprintf( stdout, "%s\n", resp->arg );
 }
 
 void get_ls(CLIENT clnt)
 {
-    struct controlMessage *resp;
-    resp = serv_pwd(mess,clnt);
-    fprintf( stdout, "%s\n", resp->arg );
+    struct transferMessage *resp;
+    struct requestTransferMessage mess;
+    clear_requestMessage(mess);
+    mess.type=FTP_LS;
+    mess.fileOffset=0;
+    resp = serv_ls(mess,clnt);
+    if(resp == NULL)
+    {
+        fprintf( stdout, "Error of transmission\n");
+        return;
+    }
+    while(resp != NULL && resp->type == FTP_TRANSFER)
+    {
+        fprintf( stdout, "%s", resp->buffer);
+        mess.fileOffset = resp->fileOffset;
+        resp = serv_ls(mess,clnt);
+
+    }
+    if(resp == NULL)
+    {
+        fprintf( stdout, "Error of transmission\n");
+        return;
+    }
+    else if (resp->type != FTP_TRANSFER_END)
+    {
+        fprintf( stdout, "Error in the execution of ls command\n");
+        return;
+    }
+    fprintf( stdout, "%s", resp->buffer);
+    fprintf( stdout, "\n");
+
+}
+
+void get_file(CLIENT clnt, struct controlMessage *m)
+{
+    struct transferMessage *resp;
+    struct requestTransferMessage mess;
+    clear_requestMessage(mess);
+    mess.type=m->type;
+    mess.arglength=m->argLength;
+    mess.fileName = m->arg;
+    FILE *fd = fopen(m->arg, "wb");
+    if(fd == NULL)
+    {
+        printf("The file %s can't be opened.\n", m->arg);
+        return;
+    }
+
+    resp = serv_download(mess,clnt);
+    int nb = BUFF_SIZE;
+    while(resp != NULL && resp->type == FTP_TRANSFER && nb==BUFF_SIZE)
+    {
+        nb = fwrite(resp->buffer,  sizeof(char), BUFFER_SIZE, fd);
+        mess.fileOffset = resp->fileOffset;
+        resp = serv_ls(mess,clnt);
+
+    }
+    if(resp == NULL)
+    {
+        fprintf( stdout, "Error of transmission\n");
+        fclose(fd);
+        return;
+    }
+    else if (resp->type == FTP_FILE_ERROR)
+    {
+        fprintf( stdout, "The file %s couldn't be opened on the server\n", m->arg);
+        fclose(fd);
+        return;
+    }
+    else if (resp->type != FTP_TRANSFER_END)
+    {
+        fprintf( stdout, "Error in downloading the file %s\n", m->arg);
+        fclose(fd);
+        return;
+    }
+    fwrite(resp->buffer,  sizeof(char), BUFFER_SIZE, fd);
+    fclose(fd);
+
+}
+
+void send_file(CLIENT clnt, struct controlMessage *m)
+{
+    struct transferMessage mess;
+    struct requestMessage *resp = NULL;
+    clear_transferMessage(mess);
+    mess.type=m->type;
+    mess.arglength=m->argLength;
+    mess.fileName = m->arg;
+    char* buff[BUFF_SIZE];
+    mess.buffer = buff;
+    FILE *fd = fopen(m->arg, "rb");
+    if(fd == NULL)
+    {
+        printf("The file %s can't be opened.\n", m->arg);
+        return;
+    }
+    int nb;
+    nb = fread(resp->buffer,  sizeof(char), BUFFER_SIZE, fd);
+    for(;nb>0; mess.fileOffset += BUFF_SIZE*(sizeof(char)))
+    {
+        for(int i = 0;(resp == NULL || resp->type != SUCCESS )&& i<5 ;i++)
+            resp = serv_upload(mess,clnt);
+
+        if(resp == NULL || resp->type != SUCCESS)
+        {
+            fprintf( stdout, "Error in the transfer of the file\n");
+            fclose(fd);
+            return;
+        }
+
+        nb = fread(resp->buffer,  sizeof(char), BUFFER_SIZE, fd);
+    }
+    if(feof(fd))
+    {
+        for(int i = 0;(resp == NULL || resp->type != SUCCESS )&& i<5 ;i++)
+            resp = serv_upload(mess,clnt);
+
+        if(resp == NULL || resp->type != SUCCESS)
+        {
+            fprintf( stdout, "Error in the transfer of the file\n");
+        }
+    }
+    else
+    {
+        fprintf( stdout, "Error in the transfer of the file\n");
+    }
+    fclose(fd);
+
 }
 
 void parse(int argc, char* argv[])
@@ -125,7 +374,7 @@ main(int argc, char **argv)
     CLIENT *clnt;
     clnt = clnt_create(serverName, FTP_PROG, FTP_VERS, "tcp");
 
-    if (clnt == (CLIENT *) NULL  )
+    if (clnt == (CLIENT*) NULL  )
     {
     /*
     * Couldn't establish connection with server.
@@ -166,16 +415,13 @@ main(int argc, char **argv)
         else if(mess.type == FTP_CD)
             func_serv_cd(clnt, &mess);
         else if(mess.type == FTP_LCD)
-            func_cd(&mess);
-        else if(mess.type == FTP_STOC)
+            func_cd(mess.arg);
+        else if(mess.type == FTP_FILE_STOC)
             get_file(clnt, &mess);
-        else if(mess.type == FTP_CTOS)
+        else if(mess.type == FTP_FILE_CTOS)
             send_file(clnt, &mess);
         else if(mess.type == FTP_BYE)
-        {
             cont=false;
-            quit_server(clnt);
-        }
         else
             display_help();
         free(cmd);
