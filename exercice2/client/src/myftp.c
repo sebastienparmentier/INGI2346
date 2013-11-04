@@ -119,7 +119,7 @@ void parse(int argc, char* argv[], char** serverAddr)
 
 void display_help()
 {
-
+	printf("Affichage de l'aide");
 }
 
 int main(int argc, char* argv[]) 
